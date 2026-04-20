@@ -13,7 +13,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: ["11", "17", "21", "25"]
+        # JDK 25 builds fine against our release=11 bytecode but Gradle 8.x's
+        # daemon doesn't yet parse Java 25 class files. Re-add once we migrate
+        # to a Gradle 9 + toolchain setup where Gradle runs on 21 and compiles
+        # against the matrix JDK.
+        java: ["11", "17", "21"]
 
     steps:
       - uses: actions/checkout@v5
