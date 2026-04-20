@@ -7,26 +7,33 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew spotlessCheck --no-daemon
+
   test:
     name: Java ${{ matrix.java }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # JDK 25 builds fine against our release=11 bytecode but Gradle 8.x's
-        # daemon doesn't yet parse Java 25 class files. Re-add once we migrate
-        # to a Gradle 9 + toolchain setup where Gradle runs on 21 and compiles
-        # against the matrix JDK.
+        # JDK 25 temporarily dropped: Gradle 8.x can't parse its bytecode.
+        # Re-add once we migrate to a Gradle 9 + toolchain setup.
         java: ["11", "17", "21"]
 
     steps:
       - uses: actions/checkout@v5
-
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
-
       - uses: gradle/actions/setup-gradle@v4
-
-      - run: ./gradlew check --no-daemon
+      - run: ./gradlew test --no-daemon
