@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: ./gradlew check --no-daemon
+
+      # Publishing is gated on:
+      #   secrets.MAVEN_CENTRAL_USERNAME      — Central Portal user token (username portion)
+      #   secrets.MAVEN_CENTRAL_PASSWORD      — Central Portal user token (password portion)
+      #   secrets.GPG_PRIVATE_KEY             — ASCII-armored private key
+      #   secrets.GPG_PASSPHRASE              — key passphrase
+      #
+      # The `com.vanniktech.maven.publish` plugin (wired in build.gradle.kts)
+      # handles signing + Central Portal upload when these are present.
+      - run: ./gradlew publishAndReleaseToMavenCentral --no-daemon --no-configuration-cache
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}

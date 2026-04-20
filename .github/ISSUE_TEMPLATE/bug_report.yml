@@ -1,0 +1,71 @@
+name: Bug report
+description: Report a bug in the Auralog Java SDK
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the sections below.
+
+        For security vulnerabilities, **do not open an issue** — see [SECURITY.md](https://github.com/auralog-ai/auralog-java/blob/main/SECURITY.md).
+
+  - type: input
+    id: sdk-version
+    attributes:
+      label: SDK version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: artifact
+    attributes:
+      label: Artifact
+      description: auralog-core, auralog-slf4j, or both
+      placeholder: "auralog-core"
+    validations:
+      required: true
+
+  - type: input
+    id: java-version
+    attributes:
+      label: JDK version + distribution
+      placeholder: "Temurin 21.0.4"
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Framework / runtime
+      description: Spring Boot 3.2, plain server JAR, GraalVM native-image, Tomcat, etc.
+      placeholder: "Spring Boot 3.2"
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Smallest code sample that demonstrates the bug.
+      render: java
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include stack traces if relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
