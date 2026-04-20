@@ -24,8 +24,8 @@ subprojects {
         // dev, any JDK >= 11 works. CI pins exact versions via actions/setup-java.
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-        withSourcesJar()
-        withJavadocJar()
+        // Sources + Javadoc jars are added by com.vanniktech.maven.publish, don't
+        // add them here or we end up with two of each.
     }
 
     tasks.withType<JavaCompile>().configureEach {
