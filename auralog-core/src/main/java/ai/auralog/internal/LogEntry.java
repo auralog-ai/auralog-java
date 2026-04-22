@@ -11,6 +11,7 @@ public final class LogEntry {
   private final String timestamp;
   private final @Nullable Map<String, Object> metadata;
   private final @Nullable String stackTrace;
+  private final @Nullable String traceId;
 
   public LogEntry(
       LogLevel level,
@@ -18,13 +19,15 @@ public final class LogEntry {
       String environment,
       String timestamp,
       @Nullable Map<String, Object> metadata,
-      @Nullable String stackTrace) {
+      @Nullable String stackTrace,
+      @Nullable String traceId) {
     this.level = Objects.requireNonNull(level, "level");
     this.message = Objects.requireNonNull(message, "message");
     this.environment = Objects.requireNonNull(environment, "environment");
     this.timestamp = Objects.requireNonNull(timestamp, "timestamp");
     this.metadata = metadata;
     this.stackTrace = stackTrace;
+    this.traceId = traceId;
   }
 
   public LogLevel level() {
@@ -49,5 +52,9 @@ public final class LogEntry {
 
   public @Nullable String stackTrace() {
     return stackTrace;
+  }
+
+  public @Nullable String traceId() {
+    return traceId;
   }
 }

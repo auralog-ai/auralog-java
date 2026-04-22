@@ -50,6 +50,50 @@ class AuralogTest {
   }
 
   @Test
+  void getTraceIdReturnsValueAfterInit() {
+    Auralog.init(
+        AuralogConfig.builder()
+            .apiKey("k")
+            .environment("test")
+            .endpoint("http://localhost:" + wm.port())
+            .captureErrors(false)
+            .build());
+    assertThat(Auralog.getTraceId()).isNotNull().isNotEmpty();
+  }
+
+  @Test
+  void setTraceIdChangesTraceId() {
+    Auralog.init(
+        AuralogConfig.builder()
+            .apiKey("k")
+            .environment("test")
+            .endpoint("http://localhost:" + wm.port())
+            .captureErrors(false)
+            .build());
+    Auralog.setTraceId("custom-trace");
+    assertThat(Auralog.getTraceId()).isEqualTo("custom-trace");
+  }
+
+  @Test
+  void getTraceIdThrowsBeforeInit() {
+    Auralog.shutdown();
+    assertThatIllegalStateException().isThrownBy(Auralog::getTraceId);
+  }
+
+  @Test
+  void traceIdFromConfigIsUsed() {
+    Auralog.init(
+        AuralogConfig.builder()
+            .apiKey("k")
+            .environment("test")
+            .endpoint("http://localhost:" + wm.port())
+            .traceId("config-trace-123")
+            .captureErrors(false)
+            .build());
+    assertThat(Auralog.getTraceId()).isEqualTo("config-trace-123");
+  }
+
+  @Test
   void infoBuffersThenFlushesOnShutdown() {
     Auralog.init(
         AuralogConfig.builder()

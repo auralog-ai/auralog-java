@@ -33,7 +33,7 @@ public final class Auralog {
   public static synchronized void init(AuralogConfig config) {
     shutdown();
     Transport t = new Transport(config.apiKey(), config.endpoint(), config.flushInterval());
-    Logger l = new Logger(config.environment(), t::send);
+    Logger l = new Logger(config.environment(), t::send, config.traceId());
     transport = t;
     logger = l;
     if (config.captureErrors()) {
@@ -52,6 +52,20 @@ public final class Auralog {
     if (t != null) t.shutdown();
     transport = null;
     logger = null;
+  }
+
+  // ----- Trace ID API -----
+
+  /** Returns the current trace ID. Auto-generated at init unless overridden. */
+  public static String getTraceId() {
+    return require().getTraceId();
+  }
+
+  /**
+   * Replaces the current trace ID. Use this to propagate an incoming trace ID from another service.
+   */
+  public static void setTraceId(String id) {
+    require().setTraceId(id);
   }
 
   // ----- Public logging API -----

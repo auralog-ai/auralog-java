@@ -17,7 +17,7 @@ class ErrorCaptureTest {
   @Test
   void installCapturesUncaughtFromThread() throws InterruptedException {
     List<LogEntry> out = new ArrayList<>();
-    Logger log = new Logger("test", out::add);
+    Logger log = new Logger("test", out::add, null);
     ErrorCapture.install(log);
 
     Thread t =
@@ -36,7 +36,7 @@ class ErrorCaptureTest {
   @Test
   void uninstallRestoresOriginal() {
     Thread.UncaughtExceptionHandler before = Thread.getDefaultUncaughtExceptionHandler();
-    ErrorCapture.install(new Logger("t", e -> {}));
+    ErrorCapture.install(new Logger("t", e -> {}, null));
     ErrorCapture.uninstall();
     assertThat(Thread.getDefaultUncaughtExceptionHandler()).isSameAs(before);
   }
@@ -44,7 +44,7 @@ class ErrorCaptureTest {
   @Test
   void doubleInstallIsIdempotent() {
     Thread.UncaughtExceptionHandler before = Thread.getDefaultUncaughtExceptionHandler();
-    Logger log = new Logger("t", e -> {});
+    Logger log = new Logger("t", e -> {}, null);
     ErrorCapture.install(log);
     ErrorCapture.install(log);
     ErrorCapture.uninstall();
@@ -60,7 +60,8 @@ class ErrorCaptureTest {
             e -> {
               sinkCalled.set(true);
               throw new RuntimeException("sink failed");
-            });
+            },
+            null);
     ErrorCapture.install(crashingLog);
     Thread t =
         new Thread(

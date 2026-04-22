@@ -135,6 +135,7 @@ public final class Transport {
     m.put("timestamp", e.timestamp());
     if (e.metadata() != null) m.put("metadata", e.metadata());
     if (e.stackTrace() != null) m.put("stackTrace", e.stackTrace());
+    if (e.traceId() != null) m.put("traceId", e.traceId());
     return m;
   }
 }

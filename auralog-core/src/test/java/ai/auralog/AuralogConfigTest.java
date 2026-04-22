@@ -15,6 +15,7 @@ class AuralogConfigTest {
     assertThat(cfg.endpoint()).isEqualTo("https://ingest.auralog.ai");
     assertThat(cfg.flushInterval()).isEqualTo(Duration.ofSeconds(5));
     assertThat(cfg.captureErrors()).isTrue();
+    assertThat(cfg.traceId()).isNull();
   }
 
   @Test
@@ -36,5 +37,11 @@ class AuralogConfigTest {
     assertThat(cfg.endpoint()).isEqualTo("http://localhost:8787");
     assertThat(cfg.flushInterval()).isEqualTo(Duration.ofSeconds(1));
     assertThat(cfg.captureErrors()).isFalse();
+  }
+
+  @Test
+  void traceIdOverride() {
+    AuralogConfig cfg = AuralogConfig.builder().apiKey("k").traceId("my-trace").build();
+    assertThat(cfg.traceId()).isEqualTo("my-trace");
   }
 }

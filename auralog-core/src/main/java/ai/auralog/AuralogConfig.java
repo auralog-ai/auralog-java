@@ -2,6 +2,7 @@ package ai.auralog;
 
 import java.time.Duration;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Immutable configuration for the Auralog SDK. Build via {@link #builder()}.
@@ -24,6 +25,7 @@ public final class AuralogConfig {
   private final String endpoint;
   private final Duration flushInterval;
   private final boolean captureErrors;
+  private final @Nullable String traceId;
 
   private AuralogConfig(Builder b) {
     this.apiKey = Objects.requireNonNull(b.apiKey, "apiKey");
@@ -31,6 +33,7 @@ public final class AuralogConfig {
     this.endpoint = b.endpoint;
     this.flushInterval = b.flushInterval;
     this.captureErrors = b.captureErrors;
+    this.traceId = b.traceId;
   }
 
   public String apiKey() {
@@ -53,6 +56,10 @@ public final class AuralogConfig {
     return captureErrors;
   }
 
+  public @Nullable String traceId() {
+    return traceId;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -64,6 +71,7 @@ public final class AuralogConfig {
     private String endpoint = DEFAULT_ENDPOINT;
     private Duration flushInterval = DEFAULT_FLUSH_INTERVAL;
     private boolean captureErrors = true;
+    private @Nullable String traceId;
 
     public Builder apiKey(String v) {
       this.apiKey = v;
@@ -87,6 +95,11 @@ public final class AuralogConfig {
 
     public Builder captureErrors(boolean v) {
       this.captureErrors = v;
+      return this;
+    }
+
+    public Builder traceId(String v) {
+      this.traceId = v;
       return this;
     }
 

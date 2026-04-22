@@ -29,7 +29,7 @@ class TransportTest {
   }
 
   private LogEntry entry(LogLevel level, String msg) {
-    return new LogEntry(level, msg, "test", "2026-04-20T00:00:00Z", null, null);
+    return new LogEntry(level, msg, "test", "2026-04-20T00:00:00Z", null, null, null);
   }
 
   @Test
