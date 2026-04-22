@@ -75,6 +75,7 @@ log.error("payment failed", exception);
 | `endpoint` | `String` | `https://ingest.auralog.ai` | Ingest endpoint override |
 | `flushInterval` | `Duration` | `Duration.ofSeconds(5)` | Time between batched flushes (errors flush immediately) |
 | `captureErrors` | `boolean` | `true` | Capture uncaught exceptions via `Thread.UncaughtExceptionHandler` |
+| `traceId` | `String` | _auto-generated_ | Custom trace ID for distributed tracing |
 
 ## Attaching exceptions
 
