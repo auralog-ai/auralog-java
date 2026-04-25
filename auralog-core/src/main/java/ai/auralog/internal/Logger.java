@@ -6,18 +6,35 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 
 public final class Logger {
+  private static final System.Logger INTERNAL_LOG = System.getLogger("ai.auralog.internal");
+
   private final String environment;
   private final Consumer<LogEntry> sink;
+  private final @Nullable Supplier<Map<String, Object>> globalMetadata;
+  private final AtomicBoolean globalMetadataWarned = new AtomicBoolean(false);
   private volatile String traceId;
 
+  /** Backward-compatible constructor without {@code globalMetadata}. Used by existing tests. */
   public Logger(String environment, Consumer<LogEntry> sink, @Nullable String traceId) {
+    this(environment, sink, traceId, null);
+  }
+
+  public Logger(
+      String environment,
+      Consumer<LogEntry> sink,
+      @Nullable String traceId,
+      @Nullable Supplier<Map<String, Object>> globalMetadata) {
     this.environment = environment;
     this.sink = sink;
     this.traceId = traceId != null ? traceId : UUID.randomUUID().toString();
+    this.globalMetadata = globalMetadata;
   }
 
   public String getTraceId() {
@@ -52,23 +69,118 @@ public final class Logger {
       LogLevel level,
       String message,
       @Nullable Map<String, Object> metadata,
-      @Nullable Throwable t) {
+      @Nullable Throwable throwable) {
     String stack = null;
-    if (t != null) {
-      StringWriter sw = new StringWriter();
-      t.printStackTrace(new PrintWriter(sw));
-      stack = sw.toString();
+    if (throwable != null) {
+      StringWriter writer = new StringWriter();
+      throwable.printStackTrace(new PrintWriter(writer));
+      stack = writer.toString();
     }
+
+    Map<String, Object> mergedMetadata = mergeMetadata(metadata);
+
     String entryTraceId = this.traceId;
-    Map<String, Object> cleanMeta = metadata;
-    if (metadata != null && metadata.containsKey("traceId")) {
-      entryTraceId = String.valueOf(metadata.get("traceId"));
-      cleanMeta = new LinkedHashMap<>(metadata);
-      cleanMeta.remove("traceId");
-      if (cleanMeta.isEmpty()) cleanMeta = null;
+    if (mergedMetadata != null && mergedMetadata.containsKey("traceId")) {
+      entryTraceId = String.valueOf(mergedMetadata.get("traceId"));
+      mergedMetadata = new LinkedHashMap<>(mergedMetadata);
+      mergedMetadata.remove("traceId");
+      if (mergedMetadata.isEmpty()) mergedMetadata = null;
     }
+
     sink.accept(
         new LogEntry(
-            level, message, environment, Instant.now().toString(), cleanMeta, stack, entryTraceId));
+            level,
+            message,
+            environment,
+            Instant.now().toString(),
+            mergedMetadata,
+            stack,
+            entryTraceId));
+  }
+
+  /**
+   * Choke-point: every emitted entry routes through this merge. Resolves the configured
+   * globalMetadata supplier, applies serialization defense, and shallow-merges per-call metadata
+   * over global keys.
+   *
+   * <p>Returns {@code null} when both sides are absent so {@link Transport} omits {@code metadata}
+   * from the wire payload.
+   */
+  private @Nullable Map<String, Object> mergeMetadata(@Nullable Map<String, Object> perCall) {
+    Map<String, Object> resolved = resolveGlobalMetadata();
+    if (resolved == null || resolved.isEmpty()) {
+      return (perCall == null || perCall.isEmpty()) ? null : perCall;
+    }
+
+    LinkedHashMap<String, Object> merged = new LinkedHashMap<>(resolved);
+    if (perCall != null) merged.putAll(perCall);
+
+    // Serialization defense: if the merged metadata isn't shippable, drop globalMetadata for this
+    // entry and warn once.
+    try {
+      Json.assertSerializable(merged);
+    } catch (Exception serializationFailure) {
+      warnOnce(
+          "globalMetadata produced a value the Auralog JSON encoder cannot serialize; dropping"
+              + " globalMetadata for this entry",
+          serializationFailure);
+      return (perCall == null || perCall.isEmpty()) ? null : perCall;
+    }
+
+    return merged;
+  }
+
+  /**
+   * Invoke the supplier with full failure containment. Returns {@code null} when the supplier is
+   * absent, throws, or returns an async/promise-like value.
+   */
+  private @Nullable Map<String, Object> resolveGlobalMetadata() {
+    Supplier<Map<String, Object>> supplier = this.globalMetadata;
+    if (supplier == null) return null;
+
+    Map<String, Object> resolved;
+    try {
+      Object raw = supplier.get();
+      if (raw == null) return null;
+      if (raw instanceof CompletionStage) {
+        warnOnce(
+            "globalMetadata supplier returned a CompletionStage / CompletableFuture; the SDK"
+                + " requires synchronous suppliers and will not await. Cache async state on the sync"
+                + " side (e.g. via a thread-local).",
+            null);
+        return null;
+      }
+      if (!(raw instanceof Map)) {
+        warnOnce(
+            "globalMetadata supplier returned a non-Map value of type "
+                + raw.getClass().getName()
+                + "; expected Map<String, Object>",
+            null);
+        return null;
+      }
+      @SuppressWarnings("unchecked")
+      Map<String, Object> casted = (Map<String, Object>) raw;
+      resolved = casted;
+    } catch (Throwable supplierFailure) {
+      warnOnce(
+          "globalMetadata supplier threw; emitting entry without globalMetadata", supplierFailure);
+      return null;
+    }
+    return resolved;
+  }
+
+  private void warnOnce(String message, @Nullable Throwable cause) {
+    if (globalMetadataWarned.compareAndSet(false, true)) {
+      if (cause != null) {
+        INTERNAL_LOG.log(System.Logger.Level.WARNING, message, cause);
+      } else {
+        INTERNAL_LOG.log(System.Logger.Level.WARNING, message);
+      }
+    }
+  }
+
+  // Visible for tests in the same package.
+  boolean hasWarnedAboutGlobalMetadata() {
+    return globalMetadataWarned.get();
   }
 }
