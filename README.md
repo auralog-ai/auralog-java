@@ -15,9 +15,9 @@ Auralog uses Claude as an on-call engineer: it monitors your logs and errors, al
 
 ```kotlin
 dependencies {
-    implementation("ai.auralog:auralog-core:0.1.0")
+    implementation("ai.auralog:auralog-core:0.2.0")
     // Optional: stdlib SLF4J bridge — captures logs from Logback/Log4j2/libraries
-    implementation("ai.auralog:auralog-slf4j:0.1.0")
+    implementation("ai.auralog:auralog-slf4j:0.2.0")
 }
 ```
 
@@ -27,7 +27,7 @@ dependencies {
 <dependency>
     <groupId>ai.auralog</groupId>
     <artifactId>auralog-core</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
 </dependency>
 ```
 
@@ -76,6 +76,39 @@ log.error("payment failed", exception);
 | `flushInterval` | `Duration` | `Duration.ofSeconds(5)` | Time between batched flushes (errors flush immediately) |
 | `captureErrors` | `boolean` | `true` | Capture uncaught exceptions via `Thread.UncaughtExceptionHandler` |
 | `traceId` | `String` | _auto-generated_ | Custom trace ID for distributed tracing |
+| `globalMetadata` | `Supplier<Map<String, Object>>` _or_ `Map<String, Object>` | _none_ | Fields merged into every emitted log entry (direct API, SLF4J bridge, uncaught-error capture). Per-call metadata wins on key collision; merge is shallow. The supplier runs on every emit — keep it cheap. |
+
+## Attaching session-scoped fields with `globalMetadata`
+
+The canonical recipe — attach `userId` to every log without threading it through every call site:
+
+```java
+import ai.auralog.Auralog;
+import ai.auralog.AuralogConfig;
+import java.util.Map;
+
+Auralog.init(AuralogConfig.builder()
+    .apiKey(System.getenv("AURALOG_API_KEY"))
+    .environment("production")
+    .globalMetadata(() -> Map.of(
+        "userId", CurrentUser.id(),         // late-bound: re-read on every emit
+        "orgId",  CurrentUser.orgId()
+    ))
+    .build());
+
+Auralog.info("checkout started");                          // carries userId + orgId
+Auralog.info("special", Map.of("userId", "impersonated")); // per-call wins on collision
+```
+
+The supplier form is the load-bearing API — it re-evaluates on every emission, so you can read mutable host state (current user, request scope, feature-flag snapshot) without restarting the SDK. For static, init-time-known fields, the `Map` overload is a convenience:
+
+```java
+.globalMetadata(Map.of("service", "checkout", "region", "us-east-1"))
+```
+
+**Performance caveat.** The supplier runs on every log emission, including from the SLF4J bridge and uncaught-error capture. Keep it O(1) — read from a thread-local or a pre-computed snapshot rather than doing real work inside it.
+
+**Failure modes.** If the supplier throws, returns a `CompletionStage` / `CompletableFuture` (the SDK is sync-only and will not await), or returns a value that the SDK's JSON encoder cannot serialize, the entry is still emitted — with just per-call metadata — and a one-time warning is logged via `System.Logger` (`ai.auralog.internal`, `WARNING`). Subsequent failures from the same SDK instance are silent.
 
 ## Attaching exceptions
 

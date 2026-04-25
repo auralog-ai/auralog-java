@@ -33,7 +33,7 @@ public final class Auralog {
   public static synchronized void init(AuralogConfig config) {
     shutdown();
     Transport t = new Transport(config.apiKey(), config.endpoint(), config.flushInterval());
-    Logger l = new Logger(config.environment(), t::send, config.traceId());
+    Logger l = new Logger(config.environment(), t::send, config.traceId(), config.globalMetadata());
     transport = t;
     logger = l;
     if (config.captureErrors()) {

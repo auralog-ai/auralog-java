@@ -1,7 +1,9 @@
 package ai.auralog;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -11,6 +13,7 @@ import org.jspecify.annotations.Nullable;
  * AuralogConfig config = AuralogConfig.builder()
  *     .apiKey(System.getenv("AURALOG_API_KEY"))
  *     .environment("production")
+ *     .globalMetadata(() -> Map.of("userId", currentUserId()))
  *     .build();
  * Auralog.init(config);
  * }</pre>
@@ -26,14 +29,16 @@ public final class AuralogConfig {
   private final Duration flushInterval;
   private final boolean captureErrors;
   private final @Nullable String traceId;
+  private final @Nullable Supplier<Map<String, Object>> globalMetadata;
 
-  private AuralogConfig(Builder b) {
-    this.apiKey = Objects.requireNonNull(b.apiKey, "apiKey");
-    this.environment = b.environment;
-    this.endpoint = b.endpoint;
-    this.flushInterval = b.flushInterval;
-    this.captureErrors = b.captureErrors;
-    this.traceId = b.traceId;
+  private AuralogConfig(Builder builder) {
+    this.apiKey = Objects.requireNonNull(builder.apiKey, "apiKey");
+    this.environment = builder.environment;
+    this.endpoint = builder.endpoint;
+    this.flushInterval = builder.flushInterval;
+    this.captureErrors = builder.captureErrors;
+    this.traceId = builder.traceId;
+    this.globalMetadata = builder.globalMetadata;
   }
 
   public String apiKey() {
@@ -60,6 +65,14 @@ public final class AuralogConfig {
     return traceId;
   }
 
+  /**
+   * Returns the configured global-metadata supplier, or {@code null} if none was set. The supplier
+   * is invoked at every emission — see {@link Builder#globalMetadata(Supplier)} for semantics.
+   */
+  public @Nullable Supplier<Map<String, Object>> globalMetadata() {
+    return globalMetadata;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -72,34 +85,64 @@ public final class AuralogConfig {
     private Duration flushInterval = DEFAULT_FLUSH_INTERVAL;
     private boolean captureErrors = true;
     private @Nullable String traceId;
+    private @Nullable Supplier<Map<String, Object>> globalMetadata;
 
-    public Builder apiKey(String v) {
-      this.apiKey = v;
+    public Builder apiKey(String value) {
+      this.apiKey = value;
       return this;
     }
 
-    public Builder environment(String v) {
-      this.environment = v;
+    public Builder environment(String value) {
+      this.environment = value;
       return this;
     }
 
-    public Builder endpoint(String v) {
-      this.endpoint = v;
+    public Builder endpoint(String value) {
+      this.endpoint = value;
       return this;
     }
 
-    public Builder flushInterval(Duration v) {
-      this.flushInterval = v;
+    public Builder flushInterval(Duration value) {
+      this.flushInterval = value;
       return this;
     }
 
-    public Builder captureErrors(boolean v) {
-      this.captureErrors = v;
+    public Builder captureErrors(boolean value) {
+      this.captureErrors = value;
       return this;
     }
 
-    public Builder traceId(String v) {
-      this.traceId = v;
+    public Builder traceId(String value) {
+      this.traceId = value;
+      return this;
+    }
+
+    /**
+     * Set a supplier that returns metadata to merge into every emitted log entry.
+     *
+     * <p>The supplier is invoked at every log emission — never pre-resolved at init — so it
+     * naturally late-binds to mutable host state (current user, request scope, feature flags). Keep
+     * it cheap: it runs on the hot path.
+     *
+     * <p>Per-call metadata wins on key collision. Merge is shallow.
+     *
+     * <p>If the supplier throws, returns a {@link java.util.concurrent.CompletionStage} (or any
+     * other async-looking type), or returns a value that the SDK's JSON encoder cannot serialize,
+     * the entry is emitted with only the per-call metadata and a one-time warning is logged via
+     * {@link System.Logger}. Subsequent failures from the same SDK instance are silent.
+     */
+    public Builder globalMetadata(@Nullable Supplier<Map<String, Object>> value) {
+      this.globalMetadata = value;
+      return this;
+    }
+
+    /**
+     * Convenience overload that wraps a static {@link Map} as a {@link Supplier}. Equivalent to
+     * {@code globalMetadata(() -> map)}. The {@link Supplier} form is the load-bearing API; this is
+     * for the trivial static-map case.
+     */
+    public Builder globalMetadata(@Nullable Map<String, Object> value) {
+      this.globalMetadata = (value == null) ? null : () -> value;
       return this;
     }
 
